@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<!--
+  templates/index.html
+  Halaman Dashboard Utama — Program Tiket Sampah Adiwiyata
+  MI Nurul Mun'im
+  Didesain dengan Tailwind CSS & Lucide Icons
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard · Tiket Sampah Adiwiyata</title>
+
+  <!-- Google Fonts: Lora (display elegan) + Plus Jakarta Sans (body bersih) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            forest: { DEFAULT: '#1a5c38', 50: '#f0f9f4', 100: '#dcf2e6', 600: '#1f7044', 700: '#1a5c38', 800: '#134429', 900: '#0c2e1b' },
+            mint:   { DEFAULT: '#4ade80', 100: '#dcfce7', 200: '#bbf7d0', 400: '#4ade80' },
+            sage:   { DEFAULT: '#84a98c', 50: '#f2f6f3', 100: '#e4ecE6', 300: '#a8c2ad', 500: '#6b8f73' },
+            amber:  { DEFAULT: '#f59e0b', 50: '#fffbeb', 100: '#fef3c7', 400: '#fbbf24', 600: '#d97706' },
+          },
+          fontFamily: {
+            display: ['"Lora"', 'Georgia', 'serif'],
+            body:    ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          keyframes: {
+            fadeUp:    { '0%': { opacity: '0', transform: 'translateY(24px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+            fadeIn:    { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
+            modalIn:   { '0%': { opacity: '0', transform: 'scale(0.95) translateY(16px)' }, '100%': { opacity: '1', transform: 'scale(1) translateY(0)' } },
+            pulse2:    { '0%,100%': { opacity: '1' }, '50%': { opacity: '0.4' } },
+            leafFloat: { '0%,100%': { transform: 'translateY(0) rotate(-4deg)' }, '50%': { transform: 'translateY(-8px) rotate(4deg)' } },
+          },
+          animation: {
+            fadeUp:    'fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) forwards',
+            fadeIn:    'fadeIn 0.4s ease forwards',
+            modalIn:   'modalIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards',
+            pulse2:    'pulse2 2s ease-in-out infinite',
+            leafFloat: 'leafFloat 4s ease-in-out infinite',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f4f8f5;
+      /* Pola titik lembut eco-tekstur */
+      background-image: radial-gradient(circle, #c8dbc8 1px, transparent 1px);
+      background-size: 30px 30px;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ======= NAVBAR ======= */
+    .navbar-gradient {
+      background: linear-gradient(135deg, #0c2e1b 0%, #1a5c38 55%, #236b43 100%);
+      border-bottom: 1px solid rgba(74,222,128,0.15);
+    }
+
+    /* ======= GLASS CARD ======= */
+    .glass {
+      background: rgba(255,255,255,0.80);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.65);
+    }
+
+    /* ======= MODAL OVERLAY ======= */
+    #modal-overlay {
+      background: rgba(8, 25, 14, 0.60);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    /* ======= STEP NUMBER ======= */
+    .step-num {
+      min-width: 2rem;
+      height: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    /* ======= SCROLLBAR TIPIS ======= */
+    .slim-scroll::-webkit-scrollbar { width: 4px; }
+    .slim-scroll::-webkit-scrollbar-track { background: #e4ece6; border-radius: 4px; }
+    .slim-scroll::-webkit-scrollbar-thumb { background: #84a98c; border-radius: 4px; }
+
+    /* ======= HERO DIAGONAL ======= */
+    .hero-bg {
+      background: linear-gradient(160deg, #1a5c38 0%, #236b43 50%, #2d7a50 100%);
+    }
+
+    /* ======= STAGGER ANIMATIONS ======= */
+    .stagger-1 { animation-delay: 0.05s; opacity: 0; }
+    .stagger-2 { animation-delay: 0.15s; opacity: 0; }
+    .stagger-3 { animation-delay: 0.25s; opacity: 0; }
+    .stagger-4 { animation-delay: 0.35s; opacity: 0; }
+
+    /* ======= HOVER LIFT ======= */
+    .hover-lift { transition: transform 0.25s ease, box-shadow 0.25s ease; }
+    .hover-lift:hover { transform: translateY(-4px); box-shadow: 0 20px 40px -10px rgba(26,92,56,0.18); }
+
+    /* ======= DIVIDER ======= */
+    .eco-divider {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #4ade80, transparent);
+    }
+  </style>
+</head>
+<body class="font-body">
+
+  <!-- =====================================================================
+       MODAL INSTRUKSI — Muncul otomatis saat halaman dimuat
+  ====================================================================== -->
+  <div id="modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="modal-box"
+         class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row"
+         style="animation: modalIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards; max-height: 92vh;">
+
+      <!-- ===== Panel Kiri: Ilustrasi / Infografis ===== -->
+      <div class="hidden md:flex flex-col relative w-72 flex-shrink-0 overflow-hidden"
+           style="background: linear-gradient(180deg,#0c2e1b 0%,#1a5c38 60%,#236b43 100%);">
+
+        <!-- Dekorasi lingkaran -->
+        <div class="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-white opacity-[0.04]"></div>
+        <div class="absolute -bottom-16 -right-16 w-56 h-56 rounded-full" style="background:rgba(74,222,128,0.10)"></div>
+
+        <!-- Konten panel -->
+        <div class="relative z-10 flex flex-col items-center justify-center h-full gap-6 px-8 py-10 text-white">
+
+          <!-- Ikon utama dengan animasi -->
+          <div style="animation: leafFloat 4s ease-in-out infinite"
+               class="w-24 h-24 rounded-2xl flex items-center justify-center"
+               style2="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18)">
+            <div class="w-24 h-24 rounded-2xl flex items-center justify-center"
+                 style="background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.18)">
+              <i data-lucide="leaf" class="w-12 h-12 text-mint-400"></i>
+            </div>
+          </div>
+
+          <div class="text-center">
+            <p class="font-display text-2xl leading-tight text-white">Tiket Sampah</p>
+            <p class="text-mint-200 text-sm mt-1" style="color:#86efac">Program Adiwiyata</p>
+          </div>
+
+          <!-- Infografis 6 langkah mini -->
+          <div class="w-full space-y-2 mt-2">
+            <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.08)">
+              <span class="step-num text-forest-700 bg-mint-400 w-6 h-6 text-xs" style="background:#4ade80;color:#1a5c38">1</span>
+              <span class="text-white text-xs">Aktifkan sistem</span>
+            </div>
+            <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.08)">
+              <span class="step-num text-forest-700 bg-mint-400 w-6 h-6 text-xs" style="background:#4ade80;color:#1a5c38">2</span>
+              <span class="text-white text-xs">Jarak ±1 meter ke kamera</span>
+            </div>
+            <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.08)">
+              <span class="step-num text-forest-700 bg-mint-400 w-6 h-6 text-xs" style="background:#4ade80;color:#1a5c38">3</span>
+              <span class="text-white text-xs">Arahkan ke kamera</span>
+            </div>
+            <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.08)">
+              <span class="step-num text-forest-700 bg-mint-400 w-6 h-6 text-xs" style="background:#4ade80;color:#1a5c38">4</span>
+              <span class="text-white text-xs">Kenali jenis sampah</span>
+            </div>
+            <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.08)">
+              <span class="step-num text-forest-700 bg-mint-400 w-6 h-6 text-xs" style="background:#4ade80;color:#1a5c38">5</span>
+              <span class="text-white text-xs">Buang sesuai jenisnya</span>
+            </div>
+            <div class="flex items-center gap-2.5 px-3 py-2 rounded-xl" style="background:rgba(255,255,255,0.08)">
+              <span class="step-num text-forest-700 bg-mint-400 w-6 h-6 text-xs" style="background:#4ade80;color:#1a5c38">6</span>
+              <span class="text-white text-xs">Hentikan aplikasi</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Panel Kanan: Panduan Teks ===== -->
+      <div class="flex-1 flex flex-col slim-scroll overflow-y-auto">
+        <!-- Header -->
+        <div class="p-8 md:p-10 pb-0">
+          <div class="flex items-start justify-between mb-5">
+            <div>
+              <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full mb-3"
+                    style="background:#dcf2e6; color:#1a5c38; border:1px solid #bbf7d0">
+                <i data-lucide="info" class="w-3 h-3"></i> Panduan Penggunaan
+              </span>
+              <h2 class="font-display text-2xl md:text-3xl leading-tight" style="color:#0c2e1b">
+                Tata Cara Penggunaan<br/>Sistem Deteksi
+              </h2>
+            </div>
+            <button onclick="tutupModal()"
+                    class="flex-shrink-0 ml-4 w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <div class="eco-divider mb-6"></div>
+        </div>
+
+        <!-- Langkah-langkah -->
+        <div class="px-8 md:px-10 space-y-3">
+
+          <!-- Langkah 1 -->
+          <div class="flex gap-4 p-4 rounded-2xl border hover:border-sage-300 transition-colors" style="background:#f2f6f3; border-color:#e4ece6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#1a5c38">
+              <i data-lucide="power" class="w-5 h-5" style="color:#4ade80"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-sm" style="color:#0c2e1b">Langkah 1 — Aktifkan Sistem</p>
+              <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Klik tombol <strong style="color:#1a5c38">"Rekam Sekarang"</strong> di navbar atau halaman utama untuk membuka halaman deteksi dan mengaktifkan kamera.</p>
+            </div>
+          </div>
+
+          <!-- Langkah 2 -->
+          <div class="flex gap-4 p-4 rounded-2xl border hover:border-sage-300 transition-colors" style="background:#f2f6f3; border-color:#e4ece6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#1a5c38">
+              <i data-lucide="ruler" class="w-5 h-5" style="color:#4ade80"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-sm" style="color:#0c2e1b">Langkah 2 — Atur Jarak</p>
+              <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Pastikan jarak antara perangkat kamera dan objek sampah <strong>kurang lebih 1 meter</strong> agar model AI dapat mengenali dengan akurat.</p>
+            </div>
+          </div>
+
+          <!-- Langkah 3 -->
+          <div class="flex gap-4 p-4 rounded-2xl border hover:border-sage-300 transition-colors" style="background:#f2f6f3; border-color:#e4ece6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#1a5c38">
+              <i data-lucide="camera" class="w-5 h-5" style="color:#4ade80"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-sm" style="color:#0c2e1b">Langkah 3 — Arahkan ke Kamera</p>
+              <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Arahkan sampah siswa ke depan kamera. Pastikan pencahayaan ruangan cukup terang dan objek berada di tengah frame video.</p>
+            </div>
+          </div>
+
+          <!-- Langkah 4 -->
+          <div class="flex gap-4 p-4 rounded-2xl border hover:border-sage-300 transition-colors" style="background:#f2f6f3; border-color:#e4ece6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#f59e0b">
+              <i data-lucide="scan-eye" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-sm" style="color:#0c2e1b">Langkah 4 — Kenali Jenis Sampah</p>
+              <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Perhatikan label deteksi pada video — sistem akan menampilkan nama jenis sampah dan kategorinya (Organik / Non Organik) secara otomatis.</p>
+            </div>
+          </div>
+
+          <!-- Langkah 5 -->
+          <div class="flex gap-4 p-4 rounded-2xl border hover:border-sage-300 transition-colors" style="background:#f2f6f3; border-color:#e4ece6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#1a5c38">
+              <i data-lucide="trash-2" class="w-5 h-5" style="color:#4ade80"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-sm" style="color:#0c2e1b">Langkah 5 — Buang Sesuai Jenisnya</p>
+              <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Setelah terdeteksi, instruksikan siswa untuk membuang sampah ke tempat yang sesuai: <strong style="color:#1a5c38">hijau</strong> untuk Organik, <strong style="color:#dc2626">merah</strong> untuk Non-Organik.</p>
+            </div>
+          </div>
+
+          <!-- Langkah 6 -->
+          <div class="flex gap-4 p-4 rounded-2xl border hover:border-sage-300 transition-colors" style="background:#f2f6f3; border-color:#e4ece6">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background:#dc2626">
+              <i data-lucide="square" class="w-5 h-5 text-white"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-sm" style="color:#0c2e1b">Langkah 6 — Hentikan Aplikasi</p>
+              <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Klik tombol <strong style="color:#dc2626">"Kembali ke Dashboard"</strong> di halaman deteksi untuk menghentikan stream dan kembali ke halaman utama.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Catatan + Tombol Mulai -->
+        <div class="p-8 md:p-10 pt-6">
+          <div class="flex gap-3 p-4 rounded-2xl mb-6" style="background:#fffbeb; border:1px solid #fef3c7">
+            <i data-lucide="lightbulb" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#f59e0b"></i>
+            <p class="text-xs leading-relaxed" style="color:#92400e">
+              <strong>Tips:</strong> Catat jumlah deteksi pada Buku Tiket Sampah siswa setelah sesi selesai. Angka statistik real-time tersedia di halaman deteksi.
+            </p>
+          </div>
+
+          <button onclick="tutupModal()"
+                  class="w-full py-4 rounded-2xl font-semibold text-base text-white flex items-center justify-center gap-2.5
+                         hover:-translate-y-0.5 hover:shadow-xl transition-all"
+                  style="background:linear-gradient(135deg,#1a5c38,#236b43); box-shadow:0 8px 24px -4px rgba(26,92,56,0.35)">
+            <i data-lucide="play-circle" class="w-5 h-5"></i>
+            Mulai Aplikasi
+          </button>
+        </div>
+      </div>
+    </div>
+  </div><!-- /modal-overlay -->
+
+
+  <!-- =====================================================================
+       NAVBAR
+  ====================================================================== -->
+  <header class="navbar-gradient sticky top-0 z-40 shadow-lg shadow-green-950/30">
+    <div class="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between gap-4">
+
+      <!-- Branding -->
+      <div class="flex items-center gap-3 min-w-0">
+        <img src="{{ url_for('static', filename='Logo_Adiwiyata.png') }}"
+           alt="Logo Adiwiyata MI Nurul Mun'im"
+           class="h-10 w-10 object-contain flex-shrink-0 rounded-xl
+                  shadow-md shadow-black/30" />
+        <div class="min-w-0">
+          <h1 class="font-display text-white text-sm md:text-base leading-tight line-clamp-1">
+            Program Tiket Sampah Adiwiyata
+          </h1>
+          <p class="text-xs" style="color:#86efac; opacity:0.8">Madrasah Ibtidaiyah Nurul Mun'im</p>
+        </div>
+      </div>
+
+      <!-- Aksi navbar -->
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <!-- Badge Sistem Aktif -->
+        <div class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
+             style="background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); color:white">
+          <span class="w-1.5 h-1.5 rounded-full" style="background:#4ade80; animation:pulse2 2s ease-in-out infinite"></span>
+          Sistem Aktif
+        </div>
+
+        <!-- Tombol Info (buka modal) -->
+        <button onclick="bukaModal()"
+                title="Panduan Penggunaan"
+                class="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:bg-white hover:bg-opacity-15 transition-colors"
+                style="border:1px solid rgba(255,255,255,0.2)">
+          <i data-lucide="info" class="w-4 h-4"></i>
+        </button>
+
+        <!-- CTA Utama: Rekam Sekarang -->
+        <a href="/deteksi"
+           class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white
+                  hover:-translate-y-0.5 hover:shadow-lg transition-all"
+           style="background:linear-gradient(135deg,#16a34a,#4ade80); color:#0c2e1b; box-shadow:0 4px 14px -2px rgba(74,222,128,0.4)">
+          <i data-lucide="video" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Rekam Sekarang</span>
+          <span class="sm:hidden">Rekam</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- =====================================================================
+       KONTEN UTAMA
+  ====================================================================== -->
+  <main class="max-w-6xl mx-auto px-5 py-12 space-y-16">
+
+    <!-- HERO -->
+    <section class="text-center animate-fadeUp stagger-1">
+      <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full mb-5"
+            style="background:#dcf2e6; color:#1a5c38; border:1px solid #bbf7d0">
+        🌿 Program Lingkungan Hidup Sekolah
+      </span>
+      <h2 class="font-display text-4xl md:text-5xl mb-4 leading-tight" style="color:#0c2e1b">
+        Deteksi Sampah<br/><em>Berbasis Kecerdasan Buatan</em>
+      </h2>
+      <p class="text-gray-500 max-w-xl mx-auto text-sm md:text-base leading-relaxed mb-8">
+        Bantu siswa belajar memilah sampah dengan teknologi YOLOv12.
+        Setiap deteksi otomatis tercatat sebagai poin <em>Tiket Sampah</em> program Adiwiyata.
+      </p>
+      <a href="/deteksi"
+         class="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl font-semibold text-base text-white
+                hover:-translate-y-1 hover:shadow-2xl transition-all"
+         style="background:linear-gradient(135deg,#1a5c38,#236b43); box-shadow:0 12px 30px -6px rgba(26,92,56,0.4)">
+        <i data-lucide="scan-line" class="w-5 h-5"></i>
+        Mulai Deteksi Sampah
+      </a>
+    </section>
+
+    <!-- DIVIDER -->
+    <div class="eco-divider animate-fadeUp stagger-2"></div>
+
+    <!-- EDUKASI: Pentingnya Memilah Sampah -->
+    <section class="animate-fadeUp stagger-2">
+      <div class="flex items-center gap-3 mb-8">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#1a5c38">
+          <i data-lucide="book-open" class="w-4 h-4" style="color:#4ade80"></i>
+        </div>
+        <h3 class="font-display text-2xl" style="color:#0c2e1b">Pentingnya Memilah Sampah</h3>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+
+        <!-- Kartu Organik -->
+        <div class="glass rounded-3xl p-7 shadow-sm hover-lift border-t-4" style="border-top-color:#4ade80">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center" style="background:#dcf2e6">
+              <i data-lucide="leaf" class="w-6 h-6" style="color:#1a5c38"></i>
+            </div>
+            <div>
+              <h4 class="font-semibold" style="color:#0c2e1b">Sampah Organik</h4>
+              <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-medium"
+                    style="background:#dcf2e6; color:#1a5c38; border:1px solid #bbf7d0">
+                ✅ Ramah Lingkungan
+              </span>
+            </div>
+          </div>
+          <p class="text-sm text-gray-500 leading-relaxed mb-5">
+            Berasal dari makhluk hidup: sisa makanan, daun kering, kertas, kardus.
+            Mudah terurai secara alami dan bermanfaat bagi tanah.
+          </p>
+          <ul class="space-y-2.5 text-sm">
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="check-circle-2" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#1a5c38"></i>
+              Dapat diolah menjadi <strong style="color:#1a5c38">kompos & pupuk alami</strong>
+            </li>
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="check-circle-2" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#1a5c38"></i>
+              Terurai dalam <strong style="color:#1a5c38">2–6 minggu</strong> di tanah
+            </li>
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="check-circle-2" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#1a5c38"></i>
+              Mendukung program <strong style="color:#1a5c38">kebun sekolah Adiwiyata</strong>
+            </li>
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="check-circle-2" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#1a5c38"></i>
+              Mengurangi volume sampah TPA secara signifikan
+            </li>
+          </ul>
+
+          <!-- Contoh jenis -->
+          <div class="mt-5 pt-5" style="border-top:1px solid #e4ece6">
+            <p class="text-xs font-semibold mb-2" style="color:#84a98c">CONTOH YANG TERDETEKSI SISTEM:</p>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#dcf2e6; color:#1a5c38">Daun Ketapang</span>
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#dcf2e6; color:#1a5c38">Daun Mangga</span>
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#dcf2e6; color:#1a5c38">Kardus</span>
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#dcf2e6; color:#1a5c38">Kertas</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kartu Non-Organik -->
+        <div class="glass rounded-3xl p-7 shadow-sm hover-lift border-t-4" style="border-top-color:#f59e0b">
+          <div class="flex items-center gap-3 mb-5">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center" style="background:#fffbeb">
+              <i data-lucide="alert-triangle" class="w-6 h-6" style="color:#f59e0b"></i>
+            </div>
+            <div>
+              <h4 class="font-semibold text-gray-800">Sampah Non-Organik</h4>
+              <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-medium"
+                    style="background:#fffbeb; color:#d97706; border:1px solid #fef3c7">
+                ⚠️ Perlu Penanganan Khusus
+              </span>
+            </div>
+          </div>
+          <p class="text-sm text-gray-500 leading-relaxed mb-5">
+            Berasal dari bahan sintetis: plastik, kaca, logam, mika. Tidak mudah
+            terurai dan dapat merusak ekosistem jika tidak dikelola dengan benar.
+          </p>
+          <ul class="space-y-2.5 text-sm">
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="x-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#f59e0b"></i>
+              Plastik butuh <strong style="color:#d97706">400–1.000 tahun</strong> untuk terurai
+            </li>
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="x-circle" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#f59e0b"></i>
+              Dapat mencemari <strong style="color:#d97706">tanah, air, dan udara</strong>
+            </li>
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="recycle" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#1a5c38"></i>
+              Harus <strong style="color:#1a5c38">didaur ulang</strong> atau disetor ke bank sampah
+            </li>
+            <li class="flex items-start gap-2.5 text-gray-600">
+              <i data-lucide="recycle" class="w-4 h-4 flex-shrink-0 mt-0.5" style="color:#1a5c38"></i>
+              Bernilai ekonomis jika dipilah dan dikelola dengan baik
+            </li>
+          </ul>
+
+          <!-- Contoh jenis -->
+          <div class="mt-5 pt-5" style="border-top:1px solid #fef3c7">
+            <p class="text-xs font-semibold mb-2" style="color:#84a98c">CONTOH YANG TERDETEKSI SISTEM:</p>
+            <div class="flex flex-wrap gap-1.5">
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#fffbeb; color:#d97706">Botol Plastik</span>
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#fffbeb; color:#d97706">Gelas Plastik</span>
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#fffbeb; color:#d97706">Kantong Plastik</span>
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#fffbeb; color:#d97706">Mika</span>
+              <span class="text-xs px-2.5 py-1 rounded-full" style="background:#fffbeb; color:#d97706">Kotak Susu</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- CTA BAWAH -->
+    <section class="animate-fadeUp stagger-4">
+      <div class="rounded-3xl p-8 md:p-12 text-center relative overflow-hidden"
+           style="background:linear-gradient(135deg,#0c2e1b 0%,#1a5c38 100%)">
+        <!-- Dekorasi -->
+        <div class="absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-10"
+             style="background:radial-gradient(circle,#4ade80,transparent)"></div>
+        <div class="absolute -bottom-8 -left-8 w-36 h-36 rounded-full opacity-10"
+             style="background:radial-gradient(circle,#4ade80,transparent)"></div>
+
+        <div class="relative z-10">
+          <p class="text-xs font-semibold mb-3" style="color:#86efac; letter-spacing:0.1em">MULAI SEKARANG</p>
+          <h3 class="font-display text-2xl md:text-3xl text-white mb-4">
+            Siap Mendampingi Siswa<br/>Memilah Sampah?
+          </h3>
+          <p class="text-sm mb-8" style="color:#a8c2ad; max-width:36rem; margin-left:auto; margin-right:auto">
+            Buka halaman deteksi, aktifkan kamera, dan biarkan AI mengenali jenis sampah secara otomatis.
+          </p>
+          <a href="/deteksi"
+             class="inline-flex items-center gap-2.5 px-8 py-4 rounded-2xl font-semibold text-sm hover:-translate-y-1 transition-all"
+             style="background:#4ade80; color:#0c2e1b; box-shadow:0 8px 24px -4px rgba(74,222,128,0.5)">
+            <i data-lucide="camera" class="w-5 h-5"></i>
+            Rekam Sekarang
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="text-center text-xs text-gray-400 pb-4">
+      <div class="flex items-center justify-center gap-2 mb-1">
+        <i data-lucide="sprout" class="w-3.5 h-3.5" style="color:#84a98c"></i>
+        <span>Program Adiwiyata · MI Nurul Mun'im</span>
+      </div>
+      <p>Sistem deteksi sampah berbasis YOLOv12 untuk lingkungan sekolah yang hijau &amp; bersih.</p>
+    </footer>
+
+  </main><!-- /main -->
+
+
+  <!-- =====================================================================
+       JAVASCRIPT
+  ====================================================================== -->
+  <script>
+    // Inisialisasi semua ikon Lucide setelah DOM siap
+    lucide.createIcons();
+
+    // ===== MODAL FUNCTIONS =====
+    function tutupModal() {
+      const overlay = document.getElementById('modal-overlay');
+      overlay.style.transition = 'opacity 0.3s ease';
+      overlay.style.opacity = '0';
+      setTimeout(() => { overlay.style.display = 'none'; }, 320);
+    }
+
+    function bukaModal() {
+      const overlay = document.getElementById('modal-overlay');
+      overlay.style.display = 'flex';
+      overlay.style.opacity = '0';
+      lucide.createIcons();
+      requestAnimationFrame(() => {
+        overlay.style.transition = 'opacity 0.3s ease';
+        overlay.style.opacity = '1';
+      });
+    }
+
+    // Modal otomatis muncul saat halaman dimuat
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+    });
+  </script>
+
+</body>
+</html>

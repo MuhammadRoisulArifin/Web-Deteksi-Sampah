@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<!--
+  templates/deteksi.html
+  Halaman Deteksi Kamera Real-Time — Program Tiket Sampah Adiwiyata
+  MI Nurul Mun'im
+  Polling data dari /api/live-counts setiap 1.5 detik via JavaScript
+  + Notifikasi otomatis saat total sampah >= 5 item
+-->
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deteksi Sampah · Tiket Sampah Adiwiyata</title>
+
+  <!-- Google Fonts: Lora + Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,600;0,700;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons via CDN -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"Lora"', 'Georgia', 'serif'],
+            body:    ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          keyframes: {
+            fadeUp:    { '0%': { opacity:'0', transform:'translateY(20px)' }, '100%': { opacity:'1', transform:'translateY(0)' } },
+            scanLine:  { '0%': { top:'5%', opacity:'1' }, '48%': { opacity:'0.9' }, '50%': { top:'90%', opacity:'0.5' }, '52%': { opacity:'0.9' }, '100%': { top:'5%', opacity:'1' } },
+            pulse2:    { '0%,100%': { opacity:'1' }, '50%': { opacity:'0.35' } },
+            countUp:   { '0%': { transform:'scale(1)' }, '40%': { transform:'scale(1.2)' }, '100%': { transform:'scale(1)' } },
+            glow:      { '0%,100%': { boxShadow:'0 0 8px 2px rgba(74,222,128,0.3)' }, '50%': { boxShadow:'0 0 20px 6px rgba(74,222,128,0.6)' } },
+            /* Animasi toast masuk dari kanan */
+            toastIn:   { '0%': { opacity:'0', transform:'translateX(110%) scale(0.92)' }, '100%': { opacity:'1', transform:'translateX(0) scale(1)' } },
+            /* Animasi toast keluar ke kanan */
+            toastOut:  { '0%': { opacity:'1', transform:'translateX(0) scale(1)' },       '100%': { opacity:'0', transform:'translateX(110%) scale(0.92)' } },
+            /* Shimmer pada peringatan inline */
+            warnPulse: { '0%,100%': { borderColor:'rgba(245,158,11,0.3)' }, '50%': { borderColor:'rgba(245,158,11,0.7)' } },
+          },
+          animation: {
+            fadeUp:    'fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) forwards',
+            scanLine:  'scanLine 2.8s ease-in-out infinite',
+            pulse2:    'pulse2 2s ease-in-out infinite',
+            countUp:   'countUp 0.38s ease-out',
+            glow:      'glow 2.5s ease-in-out infinite',
+            toastIn:   'toastIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards',
+            toastOut:  'toastOut 0.32s ease-in forwards',
+            warnPulse: 'warnPulse 1.8s ease-in-out infinite',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: #0d1f14;
+      background-image:
+        linear-gradient(rgba(74,222,128,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74,222,128,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      min-height: 100vh;
+      color: #e2ede5;
+    }
+
+    /* ======= NAVBAR ======= */
+    .navbar-dark {
+      background: rgba(8,20,12,0.92);
+      border-bottom: 1px solid rgba(74,222,128,0.12);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* ======= VIDEO FRAME ======= */
+    .video-frame {
+      border: 2px solid rgba(74,222,128,0.4);
+      border-radius: 1rem;
+      box-shadow:
+        0 0 0 1px rgba(74,222,128,0.1),
+        0 24px 60px -12px rgba(0,0,0,0.7),
+        inset 0 0 40px rgba(0,0,0,0.3);
+      overflow: hidden;
+      position: relative;
+      animation: glow 2.5s ease-in-out infinite;
+    }
+
+    /* Sudut scanner pada video */
+    .v-corner {
+      position: absolute;
+      width: 24px; height: 24px;
+      border-color: rgba(74,222,128,0.9);
+      border-style: solid;
+      z-index: 10;
+    }
+    .vc-tl { top:12px; left:12px; border-width:2px 0 0 2px; border-radius:3px 0 0 0; }
+    .vc-tr { top:12px; right:12px; border-width:2px 2px 0 0; border-radius:0 3px 0 0; }
+    .vc-bl { bottom:12px; left:12px; border-width:0 0 2px 2px; border-radius:0 0 0 3px; }
+    .vc-br { bottom:12px; right:12px; border-width:0 2px 2px 0; border-radius:0 0 3px 0; }
+
+    /* Garis laser scanner */
+    #scan-laser {
+      position: absolute;
+      left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 0%, rgba(74,222,128,0.1) 10%, #4ade80 40%, #00ff88 50%, #4ade80 60%, rgba(74,222,128,0.1) 90%, transparent 100%);
+      box-shadow: 0 0 10px 3px rgba(74,222,128,0.6), 0 0 24px 6px rgba(74,222,128,0.2);
+      animation: scanLine 2.8s ease-in-out infinite;
+      border-radius: 2px;
+      z-index: 10;
+    }
+
+    /* ======= STAT CARDS ======= */
+    .stat-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 1.25rem;
+      transition: transform 0.25s ease, border-color 0.25s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(74,222,128,0.25);
+    }
+
+    /* Animasi bump saat angka berubah */
+    .bump { animation: countUp 0.38s ease-out; }
+
+    /* ======= BADGE REC ======= */
+    .badge-rec {
+      background: rgba(220,38,38,0.15);
+      border: 1px solid rgba(220,38,38,0.35);
+      border-radius: 9999px;
+      padding: 4px 10px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: #fca5a5;
+      display: flex; align-items: center; gap: 5px;
+    }
+
+    /* ======= STATUS INDICATOR ======= */
+    .status-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      animation: pulse2 2s ease-in-out infinite;
+    }
+
+    /* ======= FPS BADGE ======= */
+    .fps-badge {
+      background: rgba(0,0,0,0.55);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      padding: 3px 8px;
+      font-size: 0.65rem;
+      font-family: 'Courier New', monospace;
+      color: #fbbf24;
+    }
+
+    /* Progress bar */
+    .progress-bar {
+      height: 4px;
+      border-radius: 9999px;
+      transition: width 0.6s ease;
+    }
+
+    /* Stagger delays */
+    .d1 { animation-delay: 0.05s; opacity:0; }
+    .d2 { animation-delay: 0.15s; opacity:0; }
+    .d3 { animation-delay: 0.25s; opacity:0; }
+    .d4 { animation-delay: 0.35s; opacity:0; }
+
+    /* =====================================================
+       PERINGATAN INLINE (di dalam kartu Total Sampah)
+       Tersembunyi saat total < 5, muncul saat total >= 5
+    ===================================================== */
+    #warn-inline {
+      display: none;
+      margin-top: 12px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.3);
+      animation: warnPulse 1.8s ease-in-out infinite;
+      align-items: center;
+      gap: 10px;
+    }
+    #warn-inline.aktif {
+      display: flex;
+    }
+
+    /* =====================================================
+       TOAST NOTIFICATION CONTAINER
+       Posisi: pojok kanan atas, di bawah navbar
+    ===================================================== */
+    #toast-area {
+      position: fixed;
+      top: 68px;        /* tepat di bawah navbar */
+      right: 20px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;   /* area tidak mencegat klik */
+      max-width: 340px;
+      width: calc(100vw - 40px);
+    }
+
+    /* Satu item toast */
+    .toast-item {
+      pointer-events: auto;
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      padding: 14px 14px 14px 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 16px 48px -8px rgba(0,0,0,0.65);
+      animation: toastIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards;
+    }
+    .toast-item.keluar {
+      animation: toastOut 0.32s ease-in forwards;
+    }
+
+    /* Warna varian toast */
+    .toast-warn {
+      background: rgba(15, 10, 0, 0.90);
+      border: 1px solid rgba(245,158,11,0.45);
+    }
+    .toast-danger {
+      background: rgba(15, 3, 3, 0.90);
+      border: 1px solid rgba(239,68,68,0.40);
+    }
+
+    /* Ikon bulat di dalam toast */
+    .toast-icon {
+      width: 38px; height: 38px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Tombol tutup (X) di pojok kanan atas toast */
+    .toast-close {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(255,255,255,0.06);
+      border: none;
+      cursor: pointer;
+      color: rgba(255,255,255,0.4);
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    .toast-close:hover {
+      background: rgba(255,255,255,0.14);
+      color: rgba(255,255,255,0.8);
+    }
+
+    /* Progress bar countdown di bagian bawah toast */
+    .toast-progress {
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 3px;
+      border-radius: 0 0 16px 16px;
+    }
+    @keyframes shrinkBar {
+      from { width: 100%; }
+      to   { width: 0%; }
+    }
+  </style>
+</head>
+<body class="font-body">
+
+  <!-- =====================================================================
+       AREA TOAST — pojok kanan atas, fixed
+       Diisi secara dinamis oleh JavaScript
+  ====================================================================== -->
+  <div id="toast-area"></div>
+
+
+  <!-- =====================================================================
+       NAVBAR
+  ====================================================================== -->
+  <header class="navbar-dark sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-5 py-3.5 flex items-center justify-between gap-4">
+
+      <!-- Branding -->
+      <div class="flex items-center gap-3">
+        <img src="{{ url_for('static', filename='Logo_Adiwiyata.png') }}"
+             alt="Logo Adiwiyata MI Nurul Mun'im"
+             class="h-10 w-10 object-contain flex-shrink-0 rounded-xl shadow-md shadow-black/30" />
+        <div>
+          <h1 class="text-sm font-semibold leading-tight text-white">Sistem Deteksi Sampah</h1>
+          <p class="text-xs" style="color:#4ade80; opacity:0.7">MI Nurul Mun'im · YOLOv12</p>
+        </div>
+      </div>
+
+      <!-- Status + Kembali -->
+      <div class="flex items-center gap-3">
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
+             style="background:rgba(220,38,38,0.12); border:1px solid rgba(220,38,38,0.3); color:#fca5a5">
+          <span class="status-dot" style="background:#ef4444"></span>
+          LIVE DETECTION
+        </div>
+        <a href="/"
+           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all hover:-translate-y-0.5"
+           style="background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); color:#d1fae5">
+          <i data-lucide="arrow-left" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Dashboard</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+
+  <!-- =====================================================================
+       KONTEN UTAMA
+  ====================================================================== -->
+  <main class="max-w-6xl mx-auto px-5 py-10">
+
+    <!-- JUDUL HALAMAN -->
+    <div class="text-center mb-10 animate-fadeUp d1">
+      <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full mb-4"
+            style="background:rgba(74,222,128,0.1); color:#4ade80; border:1px solid rgba(74,222,128,0.2)">
+        <span class="status-dot" style="background:#4ade80; width:6px; height:6px"></span>
+        Kamera Aktif · Memindai Sampah
+      </span>
+      <h2 class="font-display text-3xl md:text-4xl text-white leading-tight">
+        Deteksi Sampah Organik<br/><em style="color:#86efac">dan Non-Organik</em>
+      </h2>
+      <p class="text-sm mt-3" style="color:#6b8f73">
+        Model YOLOv12 memindai frame secara real-time dan mengklasifikasi jenis sampah otomatis
+      </p>
+    </div>
+
+    <!-- LAYOUT UTAMA: Video (kiri) + Statistik (kanan) -->
+    <div class="flex flex-col xl:flex-row gap-8 items-start">
+
+      <!-- ===== KOLOM KIRI: Video Feed ===== -->
+      <div class="w-full xl:flex-1 animate-fadeUp d2">
+        <div class="video-frame">
+          <div class="v-corner vc-tl"></div>
+          <div class="v-corner vc-tr"></div>
+          <div class="v-corner vc-bl"></div>
+          <div class="v-corner vc-br"></div>
+          <div id="scan-laser"></div>
+
+          <!-- MJPEG stream dari Flask /video -->
+          <img
+            src="{{ url_for('video') }}"
+            alt="Live Camera Feed — Deteksi Sampah YOLOv12"
+            class="w-full h-auto block"
+            style="min-height: 320px; object-fit: cover"
+          />
+
+          <div class="absolute top-4 left-4 z-20 flex items-center gap-2">
+            <div class="badge-rec">
+              <span class="status-dot" style="background:#ef4444; width:6px; height:6px"></span>
+              ● REC &nbsp; LIVE
+            </div>
+          </div>
+
+          <div class="absolute bottom-4 left-4 z-20">
+            <span id="fps-badge" class="fps-badge">FPS: —</span>
+          </div>
+
+          <div class="absolute bottom-4 right-4 z-20">
+            <span class="fps-badge" style="color:#86efac">YOLOv12 · AI MODE</span>
+          </div>
+        </div>
+
+        <!-- Instruksi singkat di bawah video -->
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex items-center gap-2 text-xs" style="color:#6b8f73">
+            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            Arahkan sampah ke kamera pada jarak ±1 meter untuk deteksi optimal
+          </div>
+          <div class="flex items-center gap-1.5 text-xs" style="color:#6b8f73">
+            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+            Auto-update tiap 1,5 detik
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== KOLOM KANAN: Kartu Statistik ===== -->
+      <div class="w-full xl:w-80 flex-shrink-0 space-y-4 animate-fadeUp d3">
+
+        <!-- Header statistik -->
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="font-display text-lg text-white">Statistik Deteksi</h3>
+          <span id="last-update" class="text-xs" style="color:#6b8f73">Menghubungkan...</span>
+        </div>
+
+        <!-- ── Kartu 1: Total Sampah ────────────────────── -->
+        <div class="stat-card p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                   style="background:rgba(255,255,255,0.06)">
+                <i data-lucide="package" style="width:18px;height:18px;color:#94a3b8"></i>
+              </div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#6b8f73">Total Sampah</span>
+            </div>
+            <span class="text-xs px-2 py-0.5 rounded-full" style="background:rgba(255,255,255,0.06);color:#94a3b8">
+              Terdeteksi
+            </span>
+          </div>
+
+          <div class="flex items-end gap-3">
+            <span id="counter-total" class="font-display text-5xl font-bold text-white">0</span>
+            <span class="text-xs mb-2" style="color:#6b8f73">item</span>
+          </div>
+
+          <div class="mt-4" style="background:rgba(255,255,255,0.06); border-radius:9999px; height:4px; overflow:hidden">
+            <div id="bar-total" class="progress-bar" style="background:rgba(148,163,184,0.5); width:100%"></div>
+          </div>
+
+          <!-- ── PERINGATAN INLINE (muncul jika total >= 5) ── -->
+          <div id="warn-inline" role="alert" aria-live="polite">
+            <div class="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                 style="background:rgba(245,158,11,0.15)">
+              <i data-lucide="alert-triangle" style="width:16px;height:16px;color:#f59e0b"></i>
+            </div>
+            <div>
+              <p class="text-xs font-semibold" style="color:#fbbf24">Batas Tercapai!</p>
+              <p class="text-xs mt-0.5 leading-relaxed" style="color:#92400e; color:#d97706">
+                Total ≥ 5 item — arahkan siswa segera memilah sampah.
+              </p>
+            </div>
+          </div>
+          <!-- ── /PERINGATAN INLINE ── -->
+        </div>
+
+        <!-- ── Kartu 2: Sampah Organik ────────────────────── -->
+        <div class="stat-card p-6" style="border-color:rgba(74,222,128,0.18)">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                   style="background:rgba(74,222,128,0.12)">
+                <i data-lucide="leaf" style="width:18px;height:18px;color:#4ade80"></i>
+              </div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#4ade80">Sampah Organik</span>
+            </div>
+            <span id="pct-organik"
+                  class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                  style="background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.2)">
+              0%
+            </span>
+          </div>
+          <div class="flex items-end gap-3">
+            <span id="counter-organik" class="font-display text-5xl font-bold" style="color:#4ade80">0</span>
+            <span class="text-xs mb-2" style="color:#6b8f73">item</span>
+          </div>
+          <div class="mt-4" style="background:rgba(74,222,128,0.08); border-radius:9999px; height:4px; overflow:hidden">
+            <div id="bar-organik" class="progress-bar" style="background:linear-gradient(90deg,#22c55e,#4ade80); width:0%"></div>
+          </div>
+          <p class="text-xs mt-3" style="color:#6b8f73">Daun · Kertas · Kardus</p>
+        </div>
+
+        <!-- ── Kartu 3: Sampah Non-Organik ────────────────── -->
+        <div class="stat-card p-6" style="border-color:rgba(239,68,68,0.18)">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                   style="background:rgba(239,68,68,0.12)">
+                <i data-lucide="trash-2" style="width:18px;height:18px;color:#f87171"></i>
+              </div>
+              <span class="text-xs font-semibold uppercase tracking-wider" style="color:#f87171">Non-Organik</span>
+            </div>
+            <span id="pct-nonorganik"
+                  class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                  style="background:rgba(239,68,68,0.12); color:#f87171; border:1px solid rgba(239,68,68,0.25)">
+              0%
+            </span>
+          </div>
+          <div class="flex items-end gap-3">
+            <span id="counter-nonorganik" class="font-display text-5xl font-bold" style="color:#f87171">0</span>
+            <span class="text-xs mb-2" style="color:#6b8f73">item</span>
+          </div>
+          <div class="mt-4" style="background:rgba(239,68,68,0.08); border-radius:9999px; height:4px; overflow:hidden">
+            <div id="bar-nonorganik" class="progress-bar" style="background:linear-gradient(90deg,#dc2626,#f87171); width:0%"></div>
+          </div>
+          <p class="text-xs mt-3" style="color:#6b8f73">Plastik · Mika · Kotak Susu</p>
+        </div>
+
+        <!-- Tombol Kembali -->
+        <a href="/"
+           class="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-semibold text-sm
+                  hover:-translate-y-0.5 hover:shadow-xl transition-all animate-fadeUp d4"
+           style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#d1fae5">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          Kembali ke Dashboard
+        </a>
+
+      </div><!-- /kolom kanan -->
+    </div><!-- /flex utama -->
+
+    <!-- INFO BAR BAWAH -->
+    <div class="mt-10 flex flex-wrap items-center justify-center gap-6 text-xs animate-fadeUp d4"
+         style="color:#6b8f73">
+      <div class="flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 rounded-full" style="background:#4ade80"></span>
+        Organik = warna hijau pada video
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-2.5 h-2.5 rounded-full" style="background:#ef4444"></span>
+        Non-Organik = warna merah pada video
+      </div>
+      <div class="flex items-center gap-1.5">
+        <i data-lucide="bell" class="w-3 h-3"></i>
+        Notifikasi otomatis muncul saat ≥ 5 item terdeteksi
+      </div>
+    </div>
+
+  </main>
+
+
+  <!-- =====================================================================
+       JAVASCRIPT
+       - Polling /api/live-counts setiap 1.5 detik
+       - Update counter, progress bar, badge persen
+       - Cek threshold >= 5: tampilkan peringatan inline + toast
+  ====================================================================== -->
+  <script>
+    lucide.createIcons();
+
+    // ── Referensi elemen counter & bar ──────────────────────────
+    const elTotal     = document.getElementById('counter-total');
+    const elOrganik   = document.getElementById('counter-organik');
+    const elNonOrg    = document.getElementById('counter-nonorganik');
+    const elPctOrg    = document.getElementById('pct-organik');
+    const elPctNonOrg = document.getElementById('pct-nonorganik');
+    const elBarOrg    = document.getElementById('bar-organik');
+    const elBarNonOrg = document.getElementById('bar-nonorganik');
+    const elFps       = document.getElementById('fps-badge');
+    const elUpdate    = document.getElementById('last-update');
+
+    // Referensi peringatan inline di kartu Total
+    const warnInline  = document.getElementById('warn-inline');
+
+    // Container toast
+    const toastArea   = document.getElementById('toast-area');
+
+    // ── Konstanta batas notifikasi ───────────────────────────────
+    const BATAS_NOTIF = 5;   // ganti angka ini untuk mengubah threshold
+
+    // ── State untuk mencegah toast muncul berulang terus-menerus ─
+    // Toast hanya ditampilkan SATU KALI per "gelombang" naik.
+    // Saat total turun kembali di bawah batas, flag direset
+    // sehingga toast bisa muncul lagi jika naik kembali.
+    let toastSudahMuncul = false;
+
+    // ── State lokal untuk deteksi perubahan angka ────────────────
+    let prevTotal   = 0;
+    let prevOrganik = 0;
+    let prevNonOrg  = 0;
+
+
+    // ════════════════════════════════════════════════════════════
+    // FUNGSI BUMP — animasi scale saat angka counter berubah
+    // ════════════════════════════════════════════════════════════
+    function bump(el) {
+      el.classList.remove('bump');
+      void el.offsetWidth;   // paksa reflow agar animasi bisa diulang
+      el.classList.add('bump');
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // FUNGSI UPDATE COUNTER — hanya animasi jika nilai berubah
+    // ════════════════════════════════════════════════════════════
+    function updateCounter(el, nilaiLama, nilaiBaru) {
+      if (nilaiBaru !== nilaiLama) {
+        el.textContent = nilaiBaru;
+        bump(el);
+      }
+    }
+
+    // ════════════════════════════════════════════════════════════
+    // FUNGSI FORMAT WAKTU
+    // ════════════════════════════════════════════════════════════
+    function waktuSekarang() {
+      return new Date().toLocaleTimeString('id-ID', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // FUNGSI TOAST — buat dan tampilkan satu toast notification
+    //
+    // @param {string} tipe     - 'warn' (kuning) atau 'danger' (merah)
+    // @param {string} judul    - teks judul toast (bold)
+    // @param {string} pesan    - teks isi toast
+    // @param {number} durasi   - ms sebelum toast hilang otomatis
+    // ════════════════════════════════════════════════════════════
+    function tampilkanToast(tipe, judul, pesan, durasi = 5500) {
+
+      // Konfigurasi warna berdasarkan tipe
+      const cfg = tipe === 'warn'
+        ? { bgIkon: 'rgba(245,158,11,0.15)', warnIkon: '#f59e0b',
+            lucide: 'alert-triangle', barColor: '#f59e0b' }
+        : { bgIkon: 'rgba(239,68,68,0.15)',  warnIkon: '#ef4444',
+            lucide: 'bell-ring',       barColor: '#ef4444' };
+
+      // Buat elemen toast
+      const toast = document.createElement('div');
+      toast.className = `toast-item toast-${tipe}`;
+
+      toast.innerHTML = `
+        <!-- Ikon -->
+        <div class="toast-icon" style="background:${cfg.bgIkon}">
+          <i data-lucide="${cfg.lucide}" style="width:18px;height:18px;color:${cfg.warnIkon}"></i>
+        </div>
+
+        <!-- Teks konten -->
+        <div style="flex:1; min-width:0; padding-right:20px;">
+          <p style="font-size:0.8rem; font-weight:700; color:#f5f5f0; line-height:1.3;">
+            ${judul}
+          </p>
+          <p style="font-size:0.72rem; color:rgba(255,255,255,0.5); margin-top:4px; line-height:1.5;">
+            ${pesan}
+          </p>
+        </div>
+
+        <!-- Tombol tutup (X) -->
+        <button class="toast-close" onclick="tutupToast(this.closest('.toast-item'))"
+                aria-label="Tutup notifikasi">
+          <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11"
+               viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+
+        <!-- Progress bar countdown (menyusut seiring waktu) -->
+        <div class="toast-progress"
+             style="background:${cfg.barColor}; opacity:0.45;
+                    animation: shrinkBar ${durasi}ms linear forwards;">
+        </div>
+      `;
+
+      // Masukkan ke container dan init ikon
+      toastArea.appendChild(toast);
+      lucide.createIcons();
+
+      // Auto-dismiss setelah durasi habis
+      const timer = setTimeout(() => tutupToast(toast), durasi);
+      // Simpan timer agar bisa dibatalkan jika ditutup manual
+      toast._autoDismiss = timer;
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // FUNGSI TUTUP TOAST — animasi keluar lalu hapus elemen
+    // ════════════════════════════════════════════════════════════
+    function tutupToast(toast) {
+      if (!toast || toast._closing) return;
+      toast._closing = true;
+      clearTimeout(toast._autoDismiss);    // batalkan auto-dismiss jika ada
+      toast.classList.add('keluar');
+      setTimeout(() => toast.remove(), 340);
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // FUNGSI CEK THRESHOLD — dipanggil setiap selesai fetch
+    //
+    // Logika:
+    //   total >= BATAS_NOTIF  → tampilkan peringatan (satu kali per gelombang)
+    //   total <  BATAS_NOTIF  → sembunyikan peringatan, reset flag
+    // ════════════════════════════════════════════════════════════
+    function cekThreshold(total) {
+
+      if (total >= BATAS_NOTIF) {
+        // Tampilkan peringatan inline di kartu Total Sampah
+        warnInline.classList.add('aktif');
+
+        // Toast hanya muncul SATU KALI per gelombang naik
+        if (!toastSudahMuncul) {
+          toastSudahMuncul = true;
+
+          // Toast pertama: peringatan utama (kuning, 6 detik)
+          tampilkanToast(
+            'warn',
+            `⚠️ ${total} Item Sampah Terdeteksi!`,
+            `Jumlah sampah di frame sudah mencapai <strong style="color:#fbbf24">${total} item</strong>.
+             Segera arahkan siswa untuk memilah dan membuang ke tempat yang sesuai.`,
+            6000
+          );
+
+          // Toast kedua: tips aksi (merah, muncul 900ms kemudian, 7 detik)
+          setTimeout(() => {
+            tampilkanToast(
+              'danger',
+              '🗑️ Saatnya Memilah Sampah',
+              '<span style="color:#86efac">Hijau</span> = Organik &nbsp;·&nbsp; ' +
+              '<span style="color:#f87171">Merah</span> = Non-Organik.<br/>' +
+              'Pastikan siswa membuang ke tempat yang benar.',
+              7000
+            );
+          }, 900);
+        }
+
+      } else {
+        // Total turun kembali di bawah batas
+        warnInline.classList.remove('aktif');
+
+        // Reset flag agar toast bisa muncul lagi di gelombang berikutnya
+        if (toastSudahMuncul) {
+          toastSudahMuncul = false;
+        }
+      }
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // FUNGSI POLLING — fetch /api/live-counts dari Flask
+    // ════════════════════════════════════════════════════════════
+    async function fetchLiveCounts() {
+      try {
+        const res = await fetch('/api/live-counts');
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        // Update counter dengan animasi bump jika nilai berubah
+        updateCounter(elTotal,   prevTotal,   data.total_count);
+        updateCounter(elOrganik, prevOrganik, data.organic_count);
+        updateCounter(elNonOrg,  prevNonOrg,  data.nonorganic_count);
+
+        // Simpan nilai terbaru
+        prevTotal   = data.total_count;
+        prevOrganik = data.organic_count;
+        prevNonOrg  = data.nonorganic_count;
+
+        // Hitung persentase (hindari pembagian nol)
+        const tot    = data.total_count || 1;
+        const pOrg   = Math.round((data.organic_count    / tot) * 100);
+        const pNonOrg= Math.round((data.nonorganic_count / tot) * 100);
+
+        elPctOrg.textContent    = data.total_count ? `${pOrg}%`    : '0%';
+        elPctNonOrg.textContent = data.total_count ? `${pNonOrg}%` : '0%';
+        elBarOrg.style.width    = data.total_count ? `${pOrg}%`    : '0%';
+        elBarNonOrg.style.width = data.total_count ? `${pNonOrg}%` : '0%';
+
+        // Update FPS badge
+        if (data.fps !== undefined) {
+          elFps.textContent = `FPS: ${data.fps}`;
+        }
+
+        // Update timestamp
+        elUpdate.textContent = `Update: ${waktuSekarang()}`;
+        elUpdate.style.color = '#4ade80';
+
+        // ── Cek threshold notifikasi ──────────────────────────
+        cekThreshold(data.total_count);
+
+      } catch (err) {
+        console.error('Gagal fetch live counts:', err);
+        elUpdate.textContent = 'Koneksi error...';
+        elUpdate.style.color = '#f87171';
+      }
+    }
+
+
+    // ════════════════════════════════════════════════════════════
+    // MULAI POLLING saat halaman selesai dimuat
+    // ════════════════════════════════════════════════════════════
+    window.addEventListener('load', () => {
+      lucide.createIcons();
+      fetchLiveCounts();                      // langsung ambil data pertama
+      setInterval(fetchLiveCounts, 1500);     // lanjut tiap 1.5 detik
+    });
+  </script>
+
+</body>
+</html>

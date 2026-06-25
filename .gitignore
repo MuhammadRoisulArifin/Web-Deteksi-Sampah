@@ -1,0 +1,21 @@
+# Virtual Environment
+env/
+venv/
+.venv/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# VS Code
+.vscode/
+
+# YOLO
+runs/
+
+# Dataset
+datasets/
+data/
+
+# Model (opsional jika ukuran besar)
+*.pt
